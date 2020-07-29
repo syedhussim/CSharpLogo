@@ -22,7 +22,6 @@ namespace Logo
                 strToken = "";
                 string line = lines[i].Trim();
 
-
                 for(int j=0; j < line.Length; j++){
                     string ch = line[j].ToString();
 
