@@ -11,6 +11,13 @@ namespace Logo
             symbols.Add(" ");
             symbols.Add("[");
             symbols.Add("]");
+            symbols.Add("=");
+            symbols.Add("(");
+            symbols.Add(")");
+            symbols.Add("+");
+            symbols.Add("-");
+            symbols.Add("/");
+            symbols.Add("*");
 
             string[] lines = str.Split("\n");
 

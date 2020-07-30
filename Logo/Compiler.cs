@@ -5,9 +5,10 @@ using System.Text;
 namespace Logo
 {
     class Compiler{
-
         private Tokens tokens;
         private Dictionary<string, Action<Tokens, FuncArgs>> functions = new Dictionary<string, Action<Tokens, FuncArgs>>();
+        private int width = 700;
+        private int height = 700;
         private double angle = 270;
         private double x1 = 350;
         private double y1 = 350;
@@ -19,22 +20,32 @@ namespace Logo
             this.functions.Add("setcanvas", FUNC_SETCANVAS);
             this.functions.Add("home", FUNC_HOME);
             this.functions.Add("penup", FUNC_PENUP);
+            this.functions.Add("pu", FUNC_PENUP);
             this.functions.Add("pendown", FUNC_PENDOWN);
+            this.functions.Add("pd", FUNC_PENDOWN);
             this.functions.Add("setpencolor", FUNC_SETPENCOLOR);
+            this.functions.Add("setpc", FUNC_SETPENCOLOR);
+            this.functions.Add("randpencolor", FUNC_RANDPENCOLOR);
+            this.functions.Add("randpc", FUNC_RANDPENCOLOR);
+            this.functions.Add("randposition", FUNC_RANDPOSITION);
+            this.functions.Add("randps", FUNC_RANDPOSITION);
             this.functions.Add("forward", FUNC_FORWARD);
+            this.functions.Add("fd", FUNC_FORWARD);
             this.functions.Add("right", FUNC_RIGHT);
+            this.functions.Add("rt", FUNC_RIGHT);
             this.functions.Add("left", FUNC_LEFT);
+            this.functions.Add("lt", FUNC_LEFT);
+            this.functions.Add("print", FUNC_PRINT);
+            this.functions.Add("let", FUNC_LET);
             this.functions.Add("repeat", FUNC_REPEAT);
             this.functions.Add("func", FUNC_FUNCTION);
         }
-
         public string Execute(){
-            output.AppendFormat("<svg width='700' height='700'>");
+            output.AppendFormat("<svg width='{0}' height='{1}'>", this.width, this.height);
             this.Compile(this.tokens, new FuncArgs());
             output.AppendLine("</svg>");
             return this.output.ToString();
         }
-
         private void Compile(Tokens tokens, FuncArgs funcArgs){
             tokens.ConsumeSpaces();
 
@@ -57,14 +68,65 @@ namespace Logo
                 this.Compile(tokens, funcArgs);
             }
         }
-
         private string GetFuncArg(string argName, FuncArgs funcArgs){
-            if(funcArgs.ContainsKey(argName)){
-                return funcArgs[argName];
+            if(argName.Substring(0,1) == ":"){
+                if(funcArgs.ContainsKey(argName)){
+                    return funcArgs[argName];
+                }else{
+                    throw new SyntaxError(string.Format("Undefined variable {0}.", argName));
+                }
             }
             return argName;
         }
+        private string Expression(Tokens tokens, FuncArgs funcArgs){
 
+            double val1 = 0;
+            double val2 = 0;
+
+            Token openParenToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            Token val1Token = tokens.GetNextToken();
+
+            val1 = Convert.ToDouble(this.GetFuncArg(val1Token.Value, funcArgs));
+
+            tokens.ConsumeSpaces();
+
+            Token opToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            if(tokens.InpectNextToken().Value == "("){
+                val2 = Convert.ToDouble(this.Expression(tokens, funcArgs));
+            }else{
+                Token val2Token = tokens.GetNextToken();
+                val2 = Convert.ToDouble(this.GetFuncArg(val2Token.Value, funcArgs));
+            }
+
+            tokens.ConsumeSpaces();
+
+            Token closeParenToken = tokens.GetNextToken();
+
+            double result = 0;
+
+            switch(opToken.Value){
+                case "+":
+                    result = val1 + val2;
+                    break;
+                case "-":
+                    result = val1 - val2;
+                    break;
+                case "/":
+                    result = val1 / val2;
+                    break;
+                case "*":
+                    result = val1 * val2;
+                    break;
+            }
+
+            return result.ToString();
+        }
         private void FUNC_SETCANVAS(Tokens tokens, FuncArgs funcArgs){
             Token funcNameToken = tokens.GetNextToken();
 
@@ -76,10 +138,8 @@ namespace Logo
                 throw new SyntaxError(string.Format("Error near line {0}. {1} function expects 3 arguments.", funcNameToken.Line,  funcNameToken.Value.ToUpper()));
             }
 
-            int width = 0;
-
             try{
-                width = Convert.ToInt32(this.GetFuncArg(funcWidthArgToken.Value, funcArgs));
+                this.width = Convert.ToInt32(this.GetFuncArg(funcWidthArgToken.Value, funcArgs));
             }
             catch(FormatException e){
                 throw new SyntaxError(string.Format("Error on line {0}. {1} function expects arg1 to be a number. {2}", funcWidthArgToken.Line, funcNameToken.Value.ToUpper(), e.Message));
@@ -93,10 +153,8 @@ namespace Logo
                 throw new SyntaxError(string.Format("Error near line {0}. {1} function expects 3 arguments.", funcWidthArgToken.Line,  funcNameToken.Value.ToUpper()));
             }
 
-            int height = 0;
-
             try{
-                height = Convert.ToInt32(this.GetFuncArg(funcHeightArgToken.Value, funcArgs));
+                this.height = Convert.ToInt32(this.GetFuncArg(funcHeightArgToken.Value, funcArgs));
             }
             catch(FormatException e){
                 throw new SyntaxError(string.Format("Error on line {0}. {1} function expects arg2 to be a number. {2}", funcHeightArgToken.Line, funcNameToken.Value.ToUpper(), e.Message));
@@ -113,10 +171,10 @@ namespace Logo
             string bgColor = funcBgColorArgToken.Value;
 
             this.output.Clear();
-            this.output.AppendFormat("<svg width='{0}' height='{1}' style='background-color:{2}'>", width, height, bgColor);
+            this.output.AppendFormat("<svg width='{0}' height='{1}' style='background-color:{2}'>", this.width, this.height, bgColor);
 
-            this.x1 = width / 2;
-            this.y1 = width / 2;
+            this.x1 = this.width / 2;
+            this.y1 = this.height / 2;
             this.angle = 270;
             this.strokeColor = "#000";
             this.penState = true;
@@ -157,6 +215,29 @@ namespace Logo
             }
 
             this.strokeColor = this.GetFuncArg(funcArgToken.Value, funcArgs);
+
+            this.Next(tokens, funcArgs);
+        }
+        private void FUNC_RANDPENCOLOR(Tokens tokens, FuncArgs funcArgs){
+            Token funcNameToken = tokens.GetNextToken();
+
+            string[] colors = new string[10]{ "#CD5C5C", "#FF69B4", "#FFA500", "#FFD700", "#DDA0DD", "#7B68EE", "#ADFF2F", "#9ACD32", "#00FFFF", "#87CEFA" };
+
+            Random rand = new Random();
+            int randNum = rand.Next(0,9);
+            this.strokeColor = colors[randNum];
+
+            this.Next(tokens, funcArgs);
+        }
+
+        private void FUNC_RANDPOSITION(Tokens tokens, FuncArgs funcArgs){
+
+            Token funcNameToken = tokens.GetNextToken();
+
+            Random rand1 = new Random();
+            this.x1 = rand1.Next(this.width);
+
+            this.y1 = rand1.Next(this.height);
 
             this.Next(tokens, funcArgs);
         }
@@ -257,7 +338,52 @@ namespace Logo
 
             this.Next(tokens, funcArgs);
         }
+        private void FUNC_PRINT(Tokens tokens, FuncArgs funcArgs){
+            Token funcNameToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            Token varNameToken = tokens.GetNextToken();
+
+            if(varNameToken == null){
+                throw new SyntaxError(string.Format("Error near line {0}. {1} function expects 1 argument.", funcNameToken.Line,  funcNameToken.Value.ToUpper()));
+            }
+
+            Console.WriteLine(this.GetFuncArg(varNameToken.Value, funcArgs));
+        }
+        private void FUNC_LET(Tokens tokens, FuncArgs funcArgs){
+            Token funcNameToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            Token varNameToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            Token equalToken = tokens.GetNextToken();
+
+            tokens.ConsumeSpaces();
+
+            string val = string.Empty;
+
+            if(tokens.InpectNextToken().Value == "("){
+                val = this.Expression(tokens, funcArgs);
+            }else{
+                val = this.GetFuncArg(tokens.GetNextToken().Value, funcArgs);
+            }
+
+            string varName = varNameToken.Value;
+
+            if(funcArgs.ContainsKey(varName)){
+                funcArgs[varName] = val;
+            }else{
+                funcArgs.Add(varName, val);
+            }
+            
+            this.Next(tokens, funcArgs);
+        }
         private void FUNC_REPEAT(Tokens tokens, FuncArgs funcArgs){
+            FuncArgs scopedFuncArgs = new FuncArgs(funcArgs);
             Token funcNameToken = tokens.GetNextToken();
 
             tokens.ConsumeSpaces();
@@ -328,11 +454,11 @@ namespace Logo
 
             for(int i=0; i < counter; i++){
                 if(!string.IsNullOrEmpty(indexName)){
-                    funcArgs.Add(indexName, i.ToString());
+                    scopedFuncArgs.Add(indexName, i.ToString());
                 }
                 repeatStmTokens.Reset();
-                this.Compile(repeatStmTokens, funcArgs);
-                funcArgs.Remove(indexName);
+                this.Compile(repeatStmTokens, scopedFuncArgs);
+                scopedFuncArgs.Remove(indexName);
             }
 
             this.Next(tokens, funcArgs);
@@ -440,7 +566,7 @@ namespace Logo
                 }
 
                 this.Compile(funcStmTokens, localFuncArgs);
-
+                funcStmTokens.Reset();
                 this.Next(scopedTokens, scopedFuncArgs); 
             });
 
@@ -448,6 +574,13 @@ namespace Logo
         }
     }
     class FuncArgs : Dictionary<string, string>{
+
+        public FuncArgs(){}
+        public FuncArgs(FuncArgs args){
+            foreach(KeyValuePair<string, string> pair in args){
+                this.Add(pair.Key, pair.Value);
+            }
+        }
 
         public override string ToString(){
             string output = "[\n";
